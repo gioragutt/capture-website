@@ -1,13 +1,15 @@
+// @ts-check
 /* global document */
-import process from 'node:process';
-import {promises as fs} from 'node:fs';
-import fileUrl from 'file-url';
-import puppeteer from 'puppeteer';
-import toughCookie from 'tough-cookie';
-import {PuppeteerBlocker} from '@cliqz/adblocker-puppeteer';
-import fetch from 'node-fetch';
 
-const isUrl = string => /^(https?|file):\/\/|^data:/.test(string);
+import process from "node:process";
+import { promises as fs } from "node:fs";
+import fileUrl from "file-url";
+import puppeteer from "puppeteer";
+import toughCookie from "tough-cookie";
+import { PuppeteerBlocker } from "@cliqz/adblocker-puppeteer";
+import fetch from "node-fetch";
+
+const isUrl = (string) => /^(https?|file):\/\/|^data:/.test(string);
 
 const assert = (value, message) => {
 	if (!value) {
@@ -15,18 +17,23 @@ const assert = (value, message) => {
 	}
 };
 
-const validateOptions = options => {
-	assert(!(options.clip && options.element), 'The `clip` and `element` option are mutually exclusive');
-	assert(!(options.clip && options.fullPage), 'The `clip` and `fullPage` option are mutually exclusive');
+const validateOptions = (options) => {
+	assert(
+		!(options.clip && options.element),
+		"The `clip` and `element` option are mutually exclusive"
+	);
+	assert(
+		!(options.clip && options.fullPage),
+		"The `clip` and `fullPage` option are mutually exclusive"
+	);
 };
 
 const scrollToElement = (element, options) => {
-	const isOverflown = element => (
-		element.scrollHeight > element.clientHeight
-			|| element.scrollWidth > element.clientWidth
-	);
+	const isOverflown = (element) =>
+		element.scrollHeight > element.clientHeight ||
+		element.scrollWidth > element.clientWidth;
 
-	const findScrollParent = element => {
+	const findScrollParent = (element) => {
 		if (element === undefined) {
 			return;
 		}
@@ -49,28 +56,28 @@ const scrollToElement = (element, options) => {
 		const offset = options.offset || 0;
 
 		switch (options.offsetFrom) {
-			case 'top':
+			case "top":
 				return {
 					x: rect.left,
 					y: rect.top + offset,
 				};
-			case 'right':
+			case "right":
 				return {
 					x: rect.left - offset,
 					y: rect.top,
 				};
-			case 'bottom':
+			case "bottom":
 				return {
 					x: rect.left,
 					y: rect.top - offset,
 				};
-			case 'left':
+			case "left":
 				return {
 					x: rect.left + offset,
 					y: rect.top,
 				};
 			default:
-				throw new Error('Invalid `scrollToElement.offsetFrom` value');
+				throw new Error("Invalid `scrollToElement.offsetFrom` value");
 		}
 	};
 
@@ -94,23 +101,25 @@ const disableAnimations = () => {
 		}
 	`;
 
-	const style = document.createElement('style');
+	const style = document.createElement("style");
 	document.body.append(style);
 
 	style.sheet.insertRule(rule);
 };
 
-const getBoundingClientRect = element => {
-	const {top, left, height, width, x, y} = element.getBoundingClientRect();
-	return {top, left, height, width, x, y};
+const getBoundingClientRect = (element) => {
+	const { top, left, height, width, x, y } = element.getBoundingClientRect();
+	return { top, left, height, width, x, y };
 };
 
 const parseCookie = (url, cookie) => {
-	if (typeof cookie === 'object') {
+	if (typeof cookie === "object") {
 		return cookie;
 	}
 
-	const jar = new toughCookie.CookieJar(undefined, {rejectPublicSuffixes: false});
+	const jar = new toughCookie.CookieJar(undefined, {
+		rejectPublicSuffixes: false,
+	});
 	jar.setCookieSync(cookie, url);
 	const returnValue = jar.serializeSync().cookies[0];
 
@@ -128,12 +137,18 @@ const parseCookie = (url, cookie) => {
 	return returnValue;
 };
 
+/**
+ *
+ * @param {string} input
+ * @param {import('.').Options} options
+ * @returns
+ */
 const internalCaptureWebsite = async (input, options) => {
 	options = {
 		launchOptions: {},
 		...options,
 	};
-	const {launchOptions} = options;
+	const { launchOptions } = options;
 
 	validateOptions(options);
 
@@ -142,15 +157,18 @@ const internalCaptureWebsite = async (input, options) => {
 		launchOptions.slowMo = 100;
 	}
 
+	/** @type {puppeteer.Browser} */
 	let browser;
+	/** @type {puppeteer.Page} */
 	let page;
+
 	try {
-		browser = options._browser || await puppeteer.launch(launchOptions);
+		browser = options._browser || (await puppeteer.launch(launchOptions));
 		page = await browser.newPage();
 
 		if (options.blockAds) {
 			const blocker = await PuppeteerBlocker.fromPrebuiltFull(fetch, {
-				path: 'engine.bin',
+				path: "engine.bin",
 				read: fs.readFile,
 				write: fs.writeFile,
 			});
@@ -158,7 +176,7 @@ const internalCaptureWebsite = async (input, options) => {
 			await blocker.enableBlockingInPage(page);
 		}
 
-		return await internalCaptureWebsiteCore(input, options, page, browser);
+		return await preparePageForScreenshot(input, options, page, browser);
 	} finally {
 		if (page) {
 			await page.close();
@@ -170,9 +188,17 @@ const internalCaptureWebsite = async (input, options) => {
 	}
 };
 
-const internalCaptureWebsiteCore = async (input, options, page, browser) => {
+/**
+ *
+ * @param {string} input
+ * @param {import('.').Options} options
+ * @param {puppeteer.Page} page
+ * @param {puppeteer.Browser} browser
+ * @returns
+ */
+const preparePageForScreenshot = async (input, options, page, browser) => {
 	options = {
-		inputType: 'url',
+		inputType: "url",
 		width: 1280,
 		height: 800,
 		scaleFactor: 2,
@@ -189,7 +215,7 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 		...options,
 	};
 
-	const isHTMLContent = options.inputType === 'html';
+	const isHTMLContent = options.inputType === "html";
 
 	input = isHTMLContent || isUrl(input) ? input : fileUrl(input);
 
@@ -215,7 +241,7 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 		screenshotOptions.fullPage = options.fullPage;
 	}
 
-	if (typeof options.defaultBackground === 'boolean') {
+	if (typeof options.defaultBackground === "boolean") {
 		screenshotOptions.omitBackground = !options.defaultBackground;
 	}
 
@@ -226,16 +252,16 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 	await page.setJavaScriptEnabled(options.isJavaScriptEnabled);
 
 	if (options.debug) {
-		page.on('console', message => {
-			let {url, lineNumber, columnNumber} = message.location();
-			lineNumber = lineNumber ? `:${lineNumber}` : '';
-			columnNumber = columnNumber ? `:${columnNumber}` : '';
-			const location = url ? ` (${url}${lineNumber}${columnNumber})` : '';
+		page.on("console", (message) => {
+			let { url, lineNumber, columnNumber } = message.location();
+			lineNumber = lineNumber ? `:${lineNumber}` : "";
+			columnNumber = columnNumber ? `:${columnNumber}` : "";
+			const location = url ? ` (${url}${lineNumber}${columnNumber})` : "";
 			console.log(`\nPage log:${location}\n${message.text()}\n`);
 		});
 
-		page.on('pageerror', error => {
-			console.log('\nPage error:', error, '\n');
+		page.on("pageerror", (error) => {
+			console.log("\nPage error:", error, "\n");
 		});
 
 		// TODO: Add more events from https://github.com/GoogleChrome/puppeteer/blob/master/docs/api.md#event-requestfailed
@@ -246,7 +272,9 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 	}
 
 	if (options.cookies) {
-		const cookies = options.cookies.map(cookie => parseCookie(isHTMLContent ? 'about:blank' : input, cookie));
+		const cookies = options.cookies.map((cookie) =>
+			parseCookie(isHTMLContent ? "about:blank" : input, cookie)
+		);
 		await page.setCookie(...cookies);
 	}
 
@@ -266,20 +294,24 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 
 	if (options.emulateDevice) {
 		if (!(options.emulateDevice in puppeteer.devices)) {
-			throw new Error(`The device name \`${options.emulateDevice}\` is not supported`);
+			throw new Error(
+				`The device name \`${options.emulateDevice}\` is not supported`
+			);
 		}
 
 		await page.emulate(puppeteer.devices[options.emulateDevice]);
 	}
 
-	await page.emulateMediaFeatures([{
-		name: 'prefers-color-scheme',
-		value: options.darkMode ? 'dark' : 'light',
-	}]);
+	await page.emulateMediaFeatures([
+		{
+			name: "prefers-color-scheme",
+			value: options.darkMode ? "dark" : "light",
+		},
+	]);
 
-	await page[isHTMLContent ? 'setContent' : 'goto'](input, {
+	await page[isHTMLContent ? "setContent" : "goto"](input, {
 		timeout: timeoutInMilliseconds,
-		waitUntil: 'networkidle2',
+		waitUntil: "networkidle2",
 	});
 
 	if (options.disableAnimations) {
@@ -288,13 +320,20 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 
 	if (Array.isArray(options.hideElements) && options.hideElements.length > 0) {
 		await page.addStyleTag({
-			content: `${options.hideElements.join(', ')} { visibility: hidden !important; }`,
+			content: `${options.hideElements.join(
+				", "
+			)} { visibility: hidden !important; }`,
 		});
 	}
 
-	if (Array.isArray(options.removeElements) && options.removeElements.length > 0) {
+	if (
+		Array.isArray(options.removeElements) &&
+		options.removeElements.length > 0
+	) {
 		await page.addStyleTag({
-			content: `${options.removeElements.join(', ')} { display: none !important; }`,
+			content: `${options.removeElements.join(
+				", "
+			)} { display: none !important; }`,
 		});
 	}
 
@@ -302,7 +341,8 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 		await page.click(options.clickElement);
 	}
 
-	const getInjectKey = (ext, value) => isUrl(value) ? 'url' : (value.endsWith(`.${ext}`) ? 'path' : 'content');
+	const getInjectKey = (ext, value) =>
+		isUrl(value) ? "url" : value.endsWith(`.${ext}`) ? "path" : "content";
 
 	if (!options.isJavaScriptEnabled) {
 		// Enable JavaScript again for `modules` and `scripts`.
@@ -310,22 +350,34 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 	}
 
 	if (options.modules) {
-		await Promise.all(options.modules.map(module_ => page.addScriptTag({
-			[getInjectKey('js', module_)]: module_,
-			type: 'module',
-		})));
+		await Promise.all(
+			options.modules.map((module_) =>
+				page.addScriptTag({
+					[getInjectKey("js", module_)]: module_,
+					type: "module",
+				})
+			)
+		);
 	}
 
 	if (options.scripts) {
-		await Promise.all(options.scripts.map(script => page.addScriptTag({
-			[getInjectKey('js', script)]: script,
-		})));
+		await Promise.all(
+			options.scripts.map((script) =>
+				page.addScriptTag({
+					[getInjectKey("js", script)]: script,
+				})
+			)
+		);
 	}
 
 	if (options.styles) {
-		await Promise.all(options.styles.map(style => page.addStyleTag({
-			[getInjectKey('css', style)]: style,
-		})));
+		await Promise.all(
+			options.styles.map((style) =>
+				page.addStyleTag({
+					[getInjectKey("css", style)]: style,
+				})
+			)
+		);
 	}
 
 	if (options.waitForElement) {
@@ -344,7 +396,10 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 			visible: true,
 			timeout: timeoutInMilliseconds,
 		});
-		screenshotOptions.clip = await page.$eval(options.element, getBoundingClientRect);
+		screenshotOptions.clip = await page.$eval(
+			options.element,
+			getBoundingClientRect
+		);
 		screenshotOptions.fullPage = false;
 	}
 
@@ -354,8 +409,12 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 
 	if (options.scrollToElement) {
 		// eslint-disable-next-line unicorn/prefer-ternary
-		if (typeof options.scrollToElement === 'object') {
-			await page.$eval(options.scrollToElement.element, scrollToElement, options.scrollToElement);
+		if (typeof options.scrollToElement === "object") {
+			await page.$eval(
+				options.scrollToElement.element,
+				scrollToElement,
+				options.scrollToElement
+			);
 		} else {
 			await page.$eval(options.scrollToElement, scrollToElement);
 		}
@@ -363,7 +422,7 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 
 	if (screenshotOptions.fullPage) {
 		// Get the height of the rendered page
-		const bodyHandle = await page.$('body');
+		const bodyHandle = await page.$("body");
 		const bodyBoundingHeight = await bodyHandle.boundingBox();
 		await bodyHandle.dispose();
 
@@ -371,9 +430,11 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 		const viewportHeight = viewportOptions.height;
 		let viewportIncrement = 0;
 		while (viewportIncrement + viewportHeight < bodyBoundingHeight) {
-			const navigationPromise = page.waitForNavigation({waitUntil: 'networkidle0'});
+			const navigationPromise = page.waitForNavigation({
+				waitUntil: "networkidle0",
+			});
 			/* eslint-disable no-await-in-loop */
-			await page.evaluate(_viewportHeight => {
+			await page.evaluate((_viewportHeight) => {
 				/* eslint-disable no-undef */
 				window.scrollBy(0, _viewportHeight);
 				/* eslint-enable no-undef */
@@ -384,7 +445,7 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 		}
 
 		// Scroll back to top
-		await page.evaluate(_ => {
+		await page.evaluate((_) => {
 			/* eslint-disable no-undef */
 			window.scrollTo(0, 0);
 			/* eslint-enable no-undef */
@@ -392,9 +453,9 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 	}
 
 	if (options.inset && !screenshotOptions.fullPage) {
-		const inset = {top: 0, right: 0, bottom: 0, left: 0};
+		const inset = { top: 0, right: 0, bottom: 0, left: 0 };
 		for (const key of Object.keys(inset)) {
-			if (typeof options.inset === 'number') {
+			if (typeof options.inset === "number") {
 				inset[key] = options.inset;
 			} else {
 				inset[key] = options.inset[key] || 0;
@@ -420,10 +481,24 @@ const internalCaptureWebsiteCore = async (input, options, page, browser) => {
 		const height = clipOptions.height - (inset.top + inset.bottom);
 
 		if (width === 0 || height === 0) {
-			throw new Error('When using the `clip` option, the width or height of the screenshot cannot be equal to 0.');
+			throw new Error(
+				"When using the `clip` option, the width or height of the screenshot cannot be equal to 0."
+			);
 		}
 
-		screenshotOptions.clip = {x, y, width, height};
+		screenshotOptions.clip = { x, y, width, height };
+	}
+
+	if (options.mhtml) {
+		// Example from https://github.com/testimio/root-cause/blob/main/packages/root-cause-core/lib/hooks/htmlCollection.ts#L28
+		const { data: mhtmlContent } = await page._client.send(
+			"Page.captureSnapshot",
+			{
+				format: "mhtml",
+			}
+		);
+
+		return mhtmlContent;
 	}
 
 	const buffer = await page.screenshot(screenshotOptions);
@@ -437,21 +512,27 @@ captureWebsite.file = async (url, filePath, options = {}) => {
 	const screenshot = await internalCaptureWebsite(url, options);
 
 	await fs.writeFile(filePath, screenshot, {
-		flag: options.overwrite ? 'w' : 'wx',
+		flag: options.overwrite ? "w" : "wx",
 	});
 };
 
-captureWebsite.buffer = async (url, options) => internalCaptureWebsite(url, options);
+captureWebsite.buffer = async (url, options) =>
+	await internalCaptureWebsite(url, options);
 
 captureWebsite.base64 = async (url, options) => {
 	const screenshot = await internalCaptureWebsite(url, options);
-	return screenshot.toString('base64');
+	return screenshot.toString("base64");
 };
 
-if (process.env.NODE_ENV === 'test') {
+captureWebsite.mhtml = async (url, options) =>
+	await internalCaptureWebsite(url, { ...options, mhtml: true });
+
+if (process.env.NODE_ENV === "test") {
 	captureWebsite._startBrowser = puppeteer.launch.bind(puppeteer);
 }
 
 export default captureWebsite;
 
-export const devices = Object.values(puppeteer.devices).map(device => device.name);
+export const devices = Object.values(puppeteer.devices).map(
+	(device) => device.name
+);

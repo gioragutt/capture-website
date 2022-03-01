@@ -1,4 +1,4 @@
-import {Buffer} from 'node:buffer';
+import { Buffer } from "node:buffer";
 import {
 	LaunchOptions as PuppeteerLaunchOptions,
 	BrowserLaunchArgumentOptions,
@@ -9,14 +9,14 @@ import {
 	Protocol,
 	Product,
 	BoundingBox,
-} from 'puppeteer';
+} from "puppeteer";
 
 export type LaunchOptions = PuppeteerLaunchOptions &
-BrowserLaunchArgumentOptions &
-BrowserConnectOptions & {
-	product?: Product;
-	extraPrefsFirefox?: Record<string, unknown>;
-};
+	BrowserLaunchArgumentOptions &
+	BrowserConnectOptions & {
+		product?: Product;
+		extraPrefsFirefox?: Record<string, unknown>;
+	};
 
 export interface Authentication {
 	readonly username: string;
@@ -34,7 +34,7 @@ export interface ScrollToElementOptions {
 	/**
 	Offset origin.
 	*/
-	readonly offsetFrom: 'top' | 'right' | 'bottom' | 'left';
+	readonly offsetFrom: "top" | "right" | "bottom" | "left";
 
 	/**
 	Offset in pixels.
@@ -43,12 +43,14 @@ export interface ScrollToElementOptions {
 }
 
 export interface Options {
+	mhtml?: boolean;
+
 	/**
 	Input type.
 
 	@default url
 	*/
-	readonly inputType?: 'url' | 'html';
+	readonly inputType?: "url" | "html";
 
 	/**
 	Page width.
@@ -69,7 +71,7 @@ export interface Options {
 
 	@default png
 	*/
-	readonly type?: 'png' | 'jpeg' | 'webp';
+	readonly type?: "png" | "jpeg" | "webp";
 
 	/**
 	Image quality. Only for `{type: 'jpeg'}` and `{type: 'webp'}`.
@@ -427,7 +429,9 @@ export interface Options {
 	});
 	```
 	*/
-	readonly inset?: number | Partial<Record<'top' | 'right' | 'bottom' | 'left', number>>;
+	readonly inset?:
+		| number
+		| Partial<Record<"top" | "right" | "bottom" | "left", number>>;
 }
 
 export interface FileOptions extends Options {
@@ -476,6 +480,14 @@ declare const captureWebsite: {
 	@returns The screenshot as binary.
 	*/
 	buffer: (input: string, options?: Options) => Promise<Buffer>;
+
+	/**
+	Captures an MHTML file of the given `input`
+
+	@param input - The URL, file URL, data URL, local file path to the website, or HTML.
+	@returns The mhtml of the website
+	*/
+	mhtml: (input: string, options?: Options) => Promise<string>;
 
 	/**
 	Capture a screenshot of the given `input`.
